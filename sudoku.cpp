@@ -79,6 +79,7 @@ int possiblesCount(vector<bool> possibles) {
 void Sudoku::generate() {
     vector<bool> oneToNine(9, true);
 
+    // Generate grid
     for(int i = 0; i < GRID_SIZE; ++i) {
         // Generate horizontal possibles
         vector<bool> h_possibles = oneToNine;
@@ -125,6 +126,9 @@ void Sudoku::generate() {
             }
         }
     }
+
+    // remove from grid according to the only-one-solution rule
+    copy_solution();
 }
 
 // ---------------------------------
@@ -151,19 +155,71 @@ void Sudoku::set_cell_solved(int i, int j, int n) {
     this->grid[i][j] = n+1;
 }
 
-void Sudoku::check_solved_cells(int i, int j) {
-    if(possiblesCount(this->possibles[i][j]) == 1) {
-        // Get the only possible one
-        for(int x = 0; x < 9; ++x) {
-            if(this->possibles[i][j][x]) {
-                set_cell_solved(i, j, x);
-                break;
+int Sudoku::check_solved_cells() {
+    int solved = 0;
+    for(int i = 0; i < GRID_SIZE; ++i) {
+        for(int j = 0; j < GRID_SIZE; ++j) {
+            if(this->grid[i][j] == 0 && 
+                possiblesCount(this->possibles[i][j]) == 1) {
+                // Get the only possible one
+                for(int x = 0; x < 9; ++x) {
+                    if(this->possibles[i][j][x]) {
+                        solved++;
+                        set_cell_solved(i, j, x);
+                        break;
+                    }
+                }             
             }
-        }             
+        }
+    }
+    return solved;
+}
+
+// Last Remaining Cell in a Box
+void Sudoku::check_hidden_single(int i, int j) {
+    // Get quad center coords
+    int center[2] = {(i/3)*3 + 1, (j/3)*3 + 1};
+    
+    // Check for repeated in quad
+    int times[GRID_SIZE] = {0};
+    for(int x = center[0]-1; x <= center[0]+1; ++x)
+        for(int y = center[1]-1; y <= center[1]+1; ++y)
+            if(x != i && y != j) { // When cell is different
+                // Count the possibles
+                for(int n = 0; n < 9; ++n) {
+                    if(this->possibles[x][y][n]) times[n]++;
+                }              
+            }
+    for(int n = 0; n < GRID_SIZE; ++n) {
+        if(times[n] == 1) {
+            // Only one possible n in quad
+            set_cell_solved(i, j, n);
+        }
+    }
+
+    // Check for repeated in row and col
+    std::fill_n(times, GRID_SIZE, 0); // reset times array
+    int times_col[GRID_SIZE] = {0};
+    for(int x = 0; x < GRID_SIZE; ++x) {
+        for(int n = 0; n < 9; ++n) {
+            // Count the possibles of the row
+            if(this->possibles[i][x][n]) times[n]++;
+            // Count the possibles of the col
+            if(this->possibles[x][j][n]) times_col[n]++;
+        }              
+    }
+    for(int n = 0; n < GRID_SIZE; ++n) {
+        if(times[n] == 1) {
+            // Only one possible n in row
+            set_cell_solved(i, j, n);
+        } else if(times_col[n] == 1) {
+            // Only one possible n in col
+            set_cell_solved(i, j, n);
+        }
     }
 }
 
-void Sudoku::solve() {
+bool Sudoku::solve() {
     this->solution_changes = 0;
     // clear memory from possibles array
     for(int i = 0; i < GRID_SIZE; ++i) {
@@ -187,27 +243,32 @@ void Sudoku::solve() {
             for(int j = 0; j < GRID_SIZE; ++j) {
                 vector<bool> q_possibles = get_quad_possibles(i/3, j/3);
                 for(int n = 0; n < 9; ++n) {
-                    this->possibles[i][j][n] = (h_possibles[i][n] && v_possibles[j][n] && q_possibles[n]);
+                    this->possibles[i][j][n] = (h_possibles[i][n] && 
+                                                v_possibles[j][n] && 
+                                                q_possibles[n]);
                 }
             }
         }
 
         // Check for solved cells
-        for(int i = 0; i < GRID_SIZE; ++i) {
-            for(int j = 0; j < GRID_SIZE; ++j) {
-                if(this->grid[i][j] == 0) {
-                    check_solved_cells(i, j);
-                    // (Last Remaining Cell in a Box)
+        if(check_solved_cells() == 0) {
+            // Other strategies
+            for(int i = 0; i < GRID_SIZE; ++i) {
+                for(int j = 0; j < GRID_SIZE; ++j) {
+                    if(this->grid[i][j] != 0) continue; 
+                    check_hidden_single(i, j);
                 }
             }
         }
 
-        // Avoid infinite loops just for debugging
+        // Avoid infinite loops
         if(lastChanges == this->solution_changes) break;
     }
+
+    return is_solution_right();
 }
 
-void Sudoku::debug_copy_solution() {
+void Sudoku::copy_solution() {
     for(int i = 0; i < GRID_SIZE; ++i) {
         for(int j = 0; j < GRID_SIZE; ++j) {
             this->grid[i][j] = this->solution[i][j];
@@ -220,16 +281,15 @@ void Sudoku::debug_copy_solution() {
     }
 }
 
-void Sudoku::debug_is_solution_right() {
+bool Sudoku::is_solution_right() {
     for(int i = 0; i < GRID_SIZE; ++i) {
         for(int j = 0; j < GRID_SIZE; ++j) {
-            if(this->grid[i][j] != this->solution[i][j]) {
-                std::cout << "Solution is not right" << std::endl;
-                return;
+            if(this->grid[i][j] != this->solution[i][j]) {                
+                return false;
             }
         }
     }
-    std::cout << "Solution is right" << std::endl;
+    return true;
 }
 
 // ---------------------------------
