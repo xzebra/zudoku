@@ -269,15 +269,35 @@ bool Sudoku::solve() {
 }
 
 void Sudoku::copy_solution() {
-    for(int i = 0; i < GRID_SIZE; ++i) {
-        for(int j = 0; j < GRID_SIZE; ++j) {
-            this->grid[i][j] = this->solution[i][j];
+    // To store the removed cells coordinates
+    int x_removed[CELLS_TO_REMOVE];
+    int y_removed[CELLS_TO_REMOVE];
+
+    while(true) { // while more than one solution
+        for(int i = 0; i < GRID_SIZE; ++i) {
+            for(int j = 0; j < GRID_SIZE; ++j) {
+                this->grid[i][j] = this->solution[i][j];
+            }
         }
+        
+        // I should do a backtracking way of removing cells so
+        // it has only a solution but i just need a simple generator
+        std::uniform_int_distribution<uint32_t> tempGenerator(0, 8);
+        for(int i = 0; i < CELLS_TO_REMOVE; ++i) {
+            x_removed[i] = tempGenerator(rng);
+            y_removed[i] = tempGenerator(rng);
+            // Avoid repeated cells
+            while(this->grid[x_removed[i]][y_removed[i]] == 0) {
+                x_removed[i] = tempGenerator(rng);
+                y_removed[i] = tempGenerator(rng);
+            }            
+            this->grid[x_removed[i]][y_removed[i]] = 0;
+        }
+        if(this->solve()) break; // End loop when found only one solution sudoku
     }
-    
-    std::uniform_int_distribution<uint32_t> tempGenerator(0, 8);
-    for(int i = 0; i < 50; ++i) {
-        this->grid[tempGenerator(rng)][tempGenerator(rng)] = 0;
+
+    for(int i = 0; i < CELLS_TO_REMOVE; ++i) {
+        this->grid[x_removed[i]][y_removed[i]] = 0;
     }
 }
 

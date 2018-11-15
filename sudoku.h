@@ -9,6 +9,7 @@
 using std::vector;
 
 const int GRID_SIZE = 9;
+const int CELLS_TO_REMOVE = 50;
 
 class Sudoku {
     public:
